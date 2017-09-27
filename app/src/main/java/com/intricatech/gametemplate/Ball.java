@@ -77,5 +77,8 @@ public class Ball {
                 ballPaint
         );
     }
-    
+
+    public void dummyMethod() {
+        // A dummy method.
+    }
 }
