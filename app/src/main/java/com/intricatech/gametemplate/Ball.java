@@ -77,9 +77,5 @@ public class Ball {
                 ballPaint
         );
     }
-
-    public void addToBallGroup() {
-        // tester.
-        // Changed in github.
-    }
+    
 }
