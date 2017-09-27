@@ -10,7 +10,7 @@
         android:supportsRtl="true"
         android:theme="@style/TemplateTheme"
         >
-
+        <!--Random Comment changed once-->
         <activity android:name=".GameActivity"
             android:configChanges="orientation|keyboardHidden"
             android:label="Game Template"
