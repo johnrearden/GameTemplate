@@ -13,7 +13,7 @@ public class Ball {
     private float xPos, yPos;
     private float velocity, direction;
     private float radius;
-    private float gravity;
+    private float gravity;^
     private Paint ballPaint;
 
     private static final float BALL_RADIUS_TO_SCREENWIDTH_RATIO = 0.02f;
