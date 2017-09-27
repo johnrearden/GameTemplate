@@ -25,4 +25,8 @@ public class Physics {
     public void onSurfaceChanged(PlayAreaInfo playAreaInfo) {
         ball.onSurfaceChanged(playAreaInfo);
     }
+
+    public void dummy() {
+        // a dummy method.
+    }
 }

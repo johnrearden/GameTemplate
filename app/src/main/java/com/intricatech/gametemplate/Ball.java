@@ -78,7 +78,4 @@ public class Ball {
         );
     }
 
-    public void dummyMethod() {
-        // A dummy method.
-    }
 }
