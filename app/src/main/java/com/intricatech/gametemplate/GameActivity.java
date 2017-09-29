@@ -22,6 +22,7 @@ public class GameActivity extends FragmentActivity
         setContentView(R.layout.game_layout);
 
         gameSurfaceView = findViewById(R.id.game_surfaceview);
+        gameSurfaceView.setOnTouchListener(this);
     }
 
     @Override
