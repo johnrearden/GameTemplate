@@ -10,6 +10,8 @@ import android.view.Choreographer;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 
+import java.util.ArrayList;
+
 /**
  * Created by Bolgbolg on 26/09/2017.
  */
@@ -17,17 +19,20 @@ import android.view.SurfaceView;
 public class GameSurfaceView extends SurfaceView
         implements SurfaceHolder.Callback,
                    Choreographer.FrameCallback,
-                   Runnable {
+                   Runnable,
+                   SurfaceInfoDirector{
 
     private String TAG;
-    private static final boolean DEBUG = true;
+    private static final boolean DEBUG = false;
+
+    private ArrayList<SurfaceInfoObserver> observers;
 
     private Physics physics;
     private Resources resources;
     private SurfaceHolder holder;
     private Choreographer choreographer;
 
-    private PlayAreaInfo playAreaInfo;
+    private SurfaceInfo surfaceInfo;
 
     private Thread drawThread;
     private boolean continueRendering;
@@ -38,26 +43,25 @@ public class GameSurfaceView extends SurfaceView
 
     public GameSurfaceView(Context context) {
         super(context);
-        initialize();
     }
 
     public GameSurfaceView(Context context, AttributeSet attrs) {
         super(context, attrs);
-        initialize();
     }
 
     public GameSurfaceView(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
-        initialize();
     }
 
-    private void initialize() {
+    public void initialize(Context context, TouchDirector touchDirector) {
         TAG = getClass().getSimpleName();
+
+        observers = new ArrayList<>();
         resources = getResources();
         holder = getHolder();
         holder.addCallback(this);
         choreographer = Choreographer.getInstance();
-        physics = new Physics();
+        physics = new Physics(this, touchDirector);
 
         continueRendering = false;
         triggerDraw = false;
@@ -69,6 +73,7 @@ public class GameSurfaceView extends SurfaceView
             if (!holder.getSurface().isValid()) {
                 continue;
             }
+            Log.d(TAG, ".....");
             while (!triggerDraw) {
                 try {
                     Thread.sleep(0, 1000);
@@ -109,7 +114,9 @@ public class GameSurfaceView extends SurfaceView
         while (true) {
             try {
                 triggerDraw = true;  // Necessary in case thread is waiting.
-                drawThread.join();
+                if (drawThread != null) {
+                    drawThread.join();
+                }
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
@@ -124,14 +131,15 @@ public class GameSurfaceView extends SurfaceView
 
     @Override
     public void surfaceCreated(SurfaceHolder surfaceHolder) {
-
+        Log.d(TAG, "surfaceCreated() invoked");
     }
 
     @Override
     public void surfaceChanged(SurfaceHolder surfaceHolder, int format, int width, int height) {
 
-        playAreaInfo = new PlayAreaInfo(width, height);
-        physics.onSurfaceChanged(playAreaInfo);
+        Log.d(TAG, "surfaceChanged() invoked");
+        surfaceInfo = new SurfaceInfo(width, height);
+        publishSurfaceInfo();
 
         drawThread = new Thread(this);
         continueRendering = true;
@@ -140,7 +148,7 @@ public class GameSurfaceView extends SurfaceView
 
     @Override
     public void surfaceDestroyed(SurfaceHolder surfaceHolder) {
-
+        Log.d(TAG, "surfaceDestroyed() invoked");
     }
 
     @Override
@@ -148,5 +156,22 @@ public class GameSurfaceView extends SurfaceView
         lastFrameStartTime = l;
         choreographer.postFrameCallback(this);
         triggerDraw = true;
+    }
+
+    @Override
+    public void register(SurfaceInfoObserver observer) {
+        observers.add(observer);
+    }
+
+    @Override
+    public void unregister(SurfaceInfoObserver observer) {
+        observers.remove(observer);
+    }
+
+    @Override
+    public void publishSurfaceInfo() {
+        for (SurfaceInfoObserver observer : observers) {
+            observer.onSurfaceChanged(surfaceInfo);
+        }
     }
 }

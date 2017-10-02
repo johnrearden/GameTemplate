@@ -3,12 +3,13 @@ package com.intricatech.gametemplate;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.view.MotionEvent;
 
 /**
  * Created by Bolgbolg on 26/09/2017.
  */
 
-public class Ball {
+public class Ball implements SurfaceInfoObserver, TouchObserver {
 
     private float xPos, yPos;
     private float velocity, direction;
@@ -21,9 +22,10 @@ public class Ball {
     private static final float GRAVITY_TO_SCREENHEIGHT_RATIO = 0.0005f;
     private static final float BOUNCE_EFFICENCY = 0.9f;
 
-    private PlayAreaInfo playAreaInfo;
+    private SurfaceInfo surfaceInfo;
 
-    public Ball() {
+    public Ball(SurfaceInfoDirector surfaceInfoDirector) {
+        surfaceInfoDirector.register(this);
         xPos = 0;
         yPos = 0;
         direction = (float) (-Math.PI + Math.PI * 2 * Math.random());
@@ -33,14 +35,16 @@ public class Ball {
         ballPaint.setColor(Color.WHITE);
     }
 
-    public void onSurfaceChanged(PlayAreaInfo pai) {
-        this.playAreaInfo = pai;
-        radius = playAreaInfo.screenWidth * BALL_RADIUS_TO_SCREENWIDTH_RATIO;
-        velocity = playAreaInfo.screenWidth * VELOCITY_TO_SCREENWIDTH_RATIO;
-        gravity = playAreaInfo.screenHeight * GRAVITY_TO_SCREENHEIGHT_RATIO;
-        xPos = playAreaInfo.screenWidth * 0.5f;
-        yPos = playAreaInfo.screenHeight * 0.5f;
+    public void onSurfaceChanged(SurfaceInfo pai) {
+        this.surfaceInfo = pai;
+        radius = surfaceInfo.screenWidth * BALL_RADIUS_TO_SCREENWIDTH_RATIO;
+        velocity = surfaceInfo.screenWidth * VELOCITY_TO_SCREENWIDTH_RATIO;
+        gravity = surfaceInfo.screenHeight * GRAVITY_TO_SCREENHEIGHT_RATIO;
+        xPos = surfaceInfo.screenWidth * 0.5f;
+        yPos = surfaceInfo.screenHeight * 0.5f;
     }
+
+
 
     public void update() {
 
@@ -51,11 +55,11 @@ public class Ball {
         yVel += gravity;
 
         // Check for collisions.
-        if (xPos + xVel > playAreaInfo.screenWidth - radius || xPos + xVel < radius) {
+        if (xPos + xVel > surfaceInfo.screenWidth - radius || xPos + xVel < radius) {
             xVel = -xVel;
             xVel = xVel * BOUNCE_EFFICENCY;
         }
-        if (yPos + yVel > playAreaInfo.screenHeight - radius || yPos + yVel < radius) {
+        if (yPos + yVel > surfaceInfo.screenHeight - radius || yPos + yVel < radius) {
             yVel = -yVel;
             yVel = yVel * BOUNCE_EFFICENCY;
         }
@@ -77,5 +81,10 @@ public class Ball {
                 ballPaint
         );
     }
+
+    public void updateTouch(MotionEvent me) {
+
+    }
+
 
 }

@@ -1,17 +1,19 @@
 package com.intricatech.gametemplate;
 
 import android.graphics.Canvas;
+import android.view.MotionEvent;
 
 /**
  * Created by Bolgbolg on 26/09/2017.
  */
 
-public class Physics {
+public class Physics implements TouchObserver{
 
     private Ball ball;
 
-    Physics() {
-        ball = new Ball();
+    Physics(SurfaceInfoDirector surfaceInfoDirector, TouchDirector touchDirector) {
+        touchDirector.register(this);
+        ball = new Ball(surfaceInfoDirector);
     }
 
     public void updateObjects() {
@@ -22,8 +24,8 @@ public class Physics {
         ball.draw(canvas);
     }
 
-    public void onSurfaceChanged(PlayAreaInfo playAreaInfo) {
-        ball.onSurfaceChanged(playAreaInfo);
-    }
+    @Override
+    public void updateTouch(MotionEvent me) {
 
+    }
 }
