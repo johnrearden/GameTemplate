@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.res.Resources;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Paint;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.Choreographer;
@@ -28,6 +29,7 @@ public class GameSurfaceView extends SurfaceView
     private ArrayList<SurfaceInfoObserver> observers;
 
     private Physics physics;
+    private DrawDataPacket drawDataPacket;
     private Resources resources;
     private SurfaceHolder holder;
     private Choreographer choreographer;
@@ -35,11 +37,36 @@ public class GameSurfaceView extends SurfaceView
     private SurfaceInfo surfaceInfo;
 
     private Thread drawThread;
+    private Paint textPaint;
     private boolean continueRendering;
     private long lastFrameStartTime;
+    private int missedFrames;
 
-    private boolean drawableObjectsReady;
     private boolean triggerDraw;
+
+    /**
+     * An enum delineating the possible states for the drawThread. Accessor is provided so that
+     * Physics.physicsThread can keep track of the drawThread's state.
+     *
+     * Until the surface is valid, the drawThread waits at WAITING_FOR_VALID_SURFACE.
+     *
+     * With a valid surface, the drawThread waits for the callback doFrame() from Choreographer,
+     * in WAITING_FOR_CHOREOGRAPHER.
+     *
+     * When doFrame() is called, the drawThread grabs the previous frames data from the physicsThread
+     * and stores it in the list of ShardDrawingPackets, in GRABBING_DATA.
+     *
+     * When drawing is complete, the drawThread switches back to waiting for the next doFrame() call
+     * in WAITING_FOR_CHOREOGRAPHER.
+     */
+    enum DrawThreadStatus {
+        WAITING_FOR_VALID_SURFACE,
+        WAITING_FOR_CHOREOGRAPHER,
+        GRABBING_DATA,
+        GRAB_COMPLETE_DRAWING_FRAME
+    }
+    private volatile DrawThreadStatus drawThreadStatus;
+
 
     public GameSurfaceView(Context context) {
         super(context);
@@ -64,47 +91,77 @@ public class GameSurfaceView extends SurfaceView
         physics = new Physics(this, touchDirector);
 
         continueRendering = false;
-        triggerDraw = false;
+
+        textPaint = new Paint();
+        textPaint.setColor(Color.GREEN);
+        textPaint.setTextSize(70);
+
+        drawThread = new Thread(this);
+        continueRendering = false;
     }
 
     @Override
     public void run() {
+        // Outer while loop - continueRendering set by Activity.onResume() and Activity.onPause().
+        outerloop:
         while (continueRendering) {
+
+            // If the surface isn't available yet, skip the frame.
             if (!holder.getSurface().isValid()) {
                 continue;
-            }
-            Log.d(TAG, ".....");
-            while (!triggerDraw) {
+            } else drawThreadStatus = DrawThreadStatus.WAITING_FOR_CHOREOGRAPHER;
+
+            // Wait for the Choreographer to initiate the frame via callback to doFrame().
+            while (drawThreadStatus == DrawThreadStatus.WAITING_FOR_CHOREOGRAPHER) {
                 try {
                     Thread.sleep(0, 1000);
                 } catch (InterruptedException ie) {
                     ie.printStackTrace();
                 }
+                if (!continueRendering) {
+                    break outerloop;
+                }
             }
 
-            // Physics update starts here.
-            physics.updateObjects();
-            float time = 0;
-            if (DEBUG) {
-                time = (float) (System.nanoTime() - lastFrameStartTime) / 1000000;
-                Log.d(TAG, "Time for frame physics == " + String.format("%.2f,", time));
+            // Grab the drawing data from bitmapBoss.shardList. If physics is not ready for the grab,
+            // redraw the previous frame using the old data.
+            if (physics.getPhysicsThreadStatus() == Physics.PhysicsThreadStatus.WAITING_FOR_DATA_GRAB_COMPLETE) {
+                grabDrawingPackets();
             }
+            drawThreadStatus = DrawThreadStatus.GRAB_COMPLETE_DRAWING_FRAME;
 
 
-            // Main drawing routine starts here.
+            // MAIN DRAWING ROUTINE STARTS HERE.
             Canvas canvas = holder.lockCanvas();
             canvas.drawColor(Color.BLACK);
 
-            physics.drawObjects(canvas);
-
-            holder.unlockCanvasAndPost(canvas);
-            triggerDraw = false;
+            drawDataPacket.drawPacket(canvas);
 
             if (DEBUG) {
-                time = (float) (System.nanoTime() - lastFrameStartTime) / 1000000;
+                canvas.drawText(
+                        "drawThread misses : " +
+                                + missedFrames,
+                        100, 100, textPaint
+                );
+            }
+            if (DEBUG) {
+                canvas.drawText(
+                        "physics Thread misses : " +
+                                + physics.missedFrames,
+                        100, 160, textPaint
+                );
+            }
+
+            holder.unlockCanvasAndPost(canvas);
+
+            if (DEBUG) {
+                float time = (float) (System.nanoTime() - lastFrameStartTime) / 1000000;
                 Log.d(TAG, "Time for drawing == " + String.format("%.2f,", time));
             }
         }
+    }
+
+    private void grabDrawingPackets() {
     }
 
     public void onPause() {
@@ -129,6 +186,14 @@ public class GameSurfaceView extends SurfaceView
         choreographer.postFrameCallback(this);
     }
 
+    private void startThreads() {
+        physics.setContinueRunning(true);
+        physics.startPhysicsThread();
+
+        continueRendering = true;
+        drawThread.start();
+    }
+
     @Override
     public void surfaceCreated(SurfaceHolder surfaceHolder) {
         Log.d(TAG, "surfaceCreated() invoked");
@@ -141,9 +206,7 @@ public class GameSurfaceView extends SurfaceView
         surfaceInfo = new SurfaceInfo(width, height);
         publishSurfaceInfo();
 
-        drawThread = new Thread(this);
-        continueRendering = true;
-        drawThread.start();
+        startThreads();
     }
 
     @Override
@@ -155,7 +218,13 @@ public class GameSurfaceView extends SurfaceView
     public void doFrame(long l) {
         lastFrameStartTime = l;
         choreographer.postFrameCallback(this);
-        triggerDraw = true;
+        if (drawThreadStatus == DrawThreadStatus.WAITING_FOR_CHOREOGRAPHER) {
+            drawThreadStatus = DrawThreadStatus.GRABBING_DATA;
+        } else {
+            missedFrames++;
+            Log.d(TAG, "missed frame ..... total == " + missedFrames);
+        }
+        physics.doFrame(l);
     }
 
     @Override
@@ -173,5 +242,22 @@ public class GameSurfaceView extends SurfaceView
         for (SurfaceInfoObserver observer : observers) {
             observer.onSurfaceChanged(surfaceInfo);
         }
+    }
+    /**
+     * A private inner class representing the data on each BitmapShard calculated by the physics
+     * object during the previous frame.
+     */
+    private class DrawDataPacket {
+
+        DrawDataPacket() {}
+
+        void copyData() {}
+
+        void drawPacket(Canvas canvas){
+        }
+    }
+
+    public DrawThreadStatus getDrawThreadStatus() {
+        return drawThreadStatus;
     }
 }
