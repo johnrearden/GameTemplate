@@ -51,7 +51,8 @@ public class GameActivity extends FragmentActivity
 
     @Override
     public boolean onTouch(View view, MotionEvent motionEvent) {
-        return false;
+        updateObservers(motionEvent);
+        return true;
     }
 
     @Override

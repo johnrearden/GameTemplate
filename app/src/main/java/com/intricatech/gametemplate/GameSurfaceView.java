@@ -21,7 +21,7 @@ public class GameSurfaceView extends SurfaceView
         implements SurfaceHolder.Callback,
                    Choreographer.FrameCallback,
                    Runnable,
-                   SurfaceInfoDirector{
+                   SurfaceInfoDirector {
 
     private String TAG;
     private static final boolean DEBUG = false;
@@ -38,6 +38,7 @@ public class GameSurfaceView extends SurfaceView
 
     private Thread drawThread;
     private Paint textPaint;
+    private Paint ballPaint;
     private boolean continueRendering;
     private long lastFrameStartTime;
     private int missedFrames;
@@ -47,15 +48,15 @@ public class GameSurfaceView extends SurfaceView
     /**
      * An enum delineating the possible states for the drawThread. Accessor is provided so that
      * Physics.physicsThread can keep track of the drawThread's state.
-     *
+     * <p>
      * Until the surface is valid, the drawThread waits at WAITING_FOR_VALID_SURFACE.
-     *
+     * <p>
      * With a valid surface, the drawThread waits for the callback doFrame() from Choreographer,
      * in WAITING_FOR_CHOREOGRAPHER.
-     *
+     * <p>
      * When doFrame() is called, the drawThread grabs the previous frames data from the physicsThread
      * and stores it in the list of ShardDrawingPackets, in GRABBING_DATA.
-     *
+     * <p>
      * When drawing is complete, the drawThread switches back to waiting for the next doFrame() call
      * in WAITING_FOR_CHOREOGRAPHER.
      */
@@ -65,8 +66,8 @@ public class GameSurfaceView extends SurfaceView
         GRABBING_DATA,
         GRAB_COMPLETE_DRAWING_FRAME
     }
-    private volatile DrawThreadStatus drawThreadStatus;
 
+    private volatile DrawThreadStatus drawThreadStatus;
 
     public GameSurfaceView(Context context) {
         super(context);
@@ -89,15 +90,21 @@ public class GameSurfaceView extends SurfaceView
         holder.addCallback(this);
         choreographer = Choreographer.getInstance();
         physics = new Physics(this, touchDirector);
+        drawDataPacket = new DrawDataPacket();
 
         continueRendering = false;
 
         textPaint = new Paint();
         textPaint.setColor(Color.GREEN);
         textPaint.setTextSize(70);
+        ballPaint = new Paint();
+        ballPaint.setStyle(Paint.Style.FILL);
+        ballPaint.setAntiAlias(true);
+        ballPaint.setColor(Color.WHITE);
 
         drawThread = new Thread(this);
         continueRendering = false;
+        drawThreadStatus = DrawThreadStatus.WAITING_FOR_VALID_SURFACE;
     }
 
     @Override
@@ -135,19 +142,23 @@ public class GameSurfaceView extends SurfaceView
             Canvas canvas = holder.lockCanvas();
             canvas.drawColor(Color.BLACK);
 
-            drawDataPacket.drawPacket(canvas);
+            canvas.drawCircle(
+                    drawDataPacket.ballxPos,
+                    drawDataPacket.ballyPos,
+                    drawDataPacket.ballRadius,
+                    ballPaint);
 
             if (DEBUG) {
                 canvas.drawText(
                         "drawThread misses : " +
-                                + missedFrames,
+                                +missedFrames,
                         100, 100, textPaint
                 );
             }
             if (DEBUG) {
                 canvas.drawText(
                         "physics Thread misses : " +
-                                + physics.missedFrames,
+                                +physics.missedFrames,
                         100, 160, textPaint
                 );
             }
@@ -162,6 +173,9 @@ public class GameSurfaceView extends SurfaceView
     }
 
     private void grabDrawingPackets() {
+        drawDataPacket.ballxPos = physics.getBall().getxPos();
+        drawDataPacket.ballyPos = physics.getBall().getyPos();
+        drawDataPacket.ballRadius = physics.getBall().getRadius();
     }
 
     public void onPause() {
@@ -187,7 +201,6 @@ public class GameSurfaceView extends SurfaceView
     }
 
     private void startThreads() {
-        physics.setContinueRunning(true);
         physics.startPhysicsThread();
 
         continueRendering = true;
@@ -243,20 +256,17 @@ public class GameSurfaceView extends SurfaceView
             observer.onSurfaceChanged(surfaceInfo);
         }
     }
+
     /**
      * A private inner class representing the data on each BitmapShard calculated by the physics
      * object during the previous frame.
      */
     private class DrawDataPacket {
 
+        float ballxPos, ballyPos, ballRadius;
+
         DrawDataPacket() {}
-
-        void copyData() {}
-
-        void drawPacket(Canvas canvas){
-        }
     }
-
     public DrawThreadStatus getDrawThreadStatus() {
         return drawThreadStatus;
     }

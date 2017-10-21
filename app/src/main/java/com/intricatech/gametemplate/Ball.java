@@ -1,9 +1,11 @@
 package com.intricatech.gametemplate;
 
-import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.util.Log;
 import android.view.MotionEvent;
+
+import static android.content.ContentValues.TAG;
 
 /**
  * Created by Bolgbolg on 26/09/2017.
@@ -18,14 +20,15 @@ public class Ball implements SurfaceInfoObserver, TouchObserver {
     private Paint ballPaint;
 
     private static final float BALL_RADIUS_TO_SCREENWIDTH_RATIO = 0.02f;
-    private static final float VELOCITY_TO_SCREENWIDTH_RATIO = 0.01f;
+    private static final float VELOCITY_TO_SCREENWIDTH_RATIO = 0.03f;
     private static final float GRAVITY_TO_SCREENHEIGHT_RATIO = 0.0005f;
     private static final float BOUNCE_EFFICENCY = 0.9f;
 
     private SurfaceInfo surfaceInfo;
 
-    public Ball(SurfaceInfoDirector surfaceInfoDirector) {
+    public Ball(SurfaceInfoDirector surfaceInfoDirector, TouchDirector touchDirector) {
         surfaceInfoDirector.register(this);
+        touchDirector.register(this);
         xPos = 0;
         yPos = 0;
         direction = (float) (-Math.PI + Math.PI * 2 * Math.random());
@@ -73,18 +76,25 @@ public class Ball implements SurfaceInfoObserver, TouchObserver {
         velocity = (float) Math.sqrt(xVel * xVel + yVel * yVel);
     }
 
-    public void draw(Canvas canvas) {
-        canvas.drawCircle(
-                xPos,
-                yPos,
-                radius,
-                ballPaint
-        );
-    }
-
     public void updateTouch(MotionEvent me) {
-
+        switch (me.getActionMasked()) {
+            case MotionEvent.ACTION_DOWN :
+                Log.d(TAG, "updateTouch invoked");
+                velocity = surfaceInfo.screenWidth * VELOCITY_TO_SCREENWIDTH_RATIO;
+                direction = (float) (-Math.PI + Math.PI * 2 * Math.random());
+                break;
+        }
     }
 
+    public float getxPos() {
+        return xPos;
+    }
 
+    public float getyPos() {
+        return yPos;
+    }
+
+    public float getRadius() {
+        return radius;
+    }
 }

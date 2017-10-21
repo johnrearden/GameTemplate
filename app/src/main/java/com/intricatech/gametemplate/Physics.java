@@ -55,7 +55,9 @@ public class Physics implements Runnable, TouchObserver{
 
         touchDirector.register(this);
         this.gameSurfaceView = gameSurfaceView;
-        ball = new Ball(gameSurfaceView);
+        ball = new Ball(gameSurfaceView, touchDirector);
+        physicsThread = new Thread(this);
+        physicsThreadStatus = PhysicsThreadStatus.WAITING_FOR_CHOREOGRAPHER;
     }
 
     @Override
@@ -101,6 +103,8 @@ public class Physics implements Runnable, TouchObserver{
                 }
             }
 
+            ball.update();
+
             physicsThreadStatus = PhysicsThreadStatus.WAITING_FOR_CHOREOGRAPHER;
 
             if (DEBUG) {
@@ -141,5 +145,9 @@ public class Physics implements Runnable, TouchObserver{
 
     public void setContinueRunning(boolean continueRunning) {
         this.continueRunning = continueRunning;
+    }
+
+    public Ball getBall() {
+        return ball;
     }
 }
